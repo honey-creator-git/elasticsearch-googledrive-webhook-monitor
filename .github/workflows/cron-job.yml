@@ -1,4 +1,4 @@
-name: Monitor Google Drive Webhook Cron Job
+name: Monitor Webhooks Cron Job
 
 on:
   schedule:
@@ -15,7 +15,7 @@ jobs:
       - name: Set Up Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: "16" # Specify your Node.js version
+          node-version: "20" # Use Node.js 20.x
 
       - name: Install Dependencies
         run: npm install
