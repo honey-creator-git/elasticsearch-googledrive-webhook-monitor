@@ -56,6 +56,7 @@ async function registerWebhook(drive, gc_accessToken, gc_refreshToken, webhookUr
         };
     } catch (error) {
         console.error("Failed to register webhook:", error.message);
+
         return {
             error: "Failed to register webhook",
             details: error.message,
@@ -120,17 +121,39 @@ exports.monitorWebhooks = async () => {
                     const drive = google.drive({ version: "v3", auth });
                     const newwebhookdetails = await registerWebhook(drive, gc_accessToken, refreshToken, webhookUrl, categoryId)
 
-                    // Step 4: Update the Elasticsearch document with the new expiration time
-                    await client.update({
-                        index,
-                        id: webhook._id,
-                        body: {
-                            doc: {
-                                webhookExpiry: newwebhookdetails.expiration,
-                                startPageToken: newwebhookdetails.startPageToken,
+                    if (!!newwebhookdetails.error) {
+                        console.error("Access token expired. Refreshing token...");
+                        const refreshedToken = await refreshAccessToken(client_id, client_secret, refreshToken);
+
+                        accessToken = refreshedToken.access_token;
+                        auth.setCredentials({ access_token: accessToken });
+                        const drive = google.drive({ version: "v3", auth });
+                        const newwebhookdetails = await registerWebhook(drive, accessToken, refreshToken, webhookUrl, categoryId)
+
+                        // Step 4: Update the Elasticsearch document with the new expiration time
+                        await client.update({
+                            index,
+                            id: webhook._id,
+                            body: {
+                                doc: {
+                                    webhookExpiry: newwebhookdetails.expiration,
+                                    startPageToken: newwebhookdetails.startPageToken,
+                                }
                             }
-                        }
-                    });
+                        });
+                    } else {
+                        // Step 4: Update the Elasticsearch document with the new expiration time
+                        await client.update({
+                            index,
+                            id: webhook._id,
+                            body: {
+                                doc: {
+                                    webhookExpiry: newwebhookdetails.expiration,
+                                    startPageToken: newwebhookdetails.startPageToken,
+                                }
+                            }
+                        });
+                    }
 
                     console.log(`Webhook re-registered for resourceId: ${resourceId}`);
                 } catch (tokenError) {
